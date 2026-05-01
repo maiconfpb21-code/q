@@ -21,6 +21,7 @@ export interface Loan {
   startDate: string;
   status: LoanStatus;
   payments: Payment[];
+  dailyPenalty: number; // fixed value per day late
   description?: string;
 }
 
@@ -35,6 +36,7 @@ export const INITIAL_DATA: Loan[] = [
     totalTerm: 10,
     startDate: format(new Date(), 'yyyy-MM-dd'),
     status: 'overdue',
+    dailyPenalty: 10,
     payments: [
       { id: '1', amount: 450, dueDate: format(addMonths(new Date(), -1), 'yyyy-MM-dd'), status: 'overdue' },
       { id: '2', amount: 450, dueDate: format(new Date(), 'yyyy-MM-dd'), status: 'pending' },
@@ -48,6 +50,7 @@ export const INITIAL_DATA: Loan[] = [
     totalTerm: 5,
     startDate: format(new Date(), 'yyyy-MM-dd'),
     status: 'active',
+    dailyPenalty: 5,
     payments: [
       { id: '1', amount: 430, dueDate: format(addMonths(new Date(), -1), 'yyyy-MM-dd'), status: 'paid', paidAt: format(addMonths(new Date(), -1), 'yyyy-MM-dd') },
       { id: '2', amount: 430, dueDate: format(new Date(), 'yyyy-MM-dd'), status: 'pending' },
@@ -61,6 +64,7 @@ export const INITIAL_DATA: Loan[] = [
     totalTerm: 24,
     startDate: format(new Date(), 'yyyy-MM-dd'),
     status: 'active',
+    dailyPenalty: 20,
     payments: [
       { id: '1', amount: 500, dueDate: format(new Date(), 'yyyy-MM-dd'), status: 'pending' },
     ]

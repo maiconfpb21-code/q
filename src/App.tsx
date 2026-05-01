@@ -24,7 +24,7 @@ import {
   X
 } from 'lucide-react';
 import { Loan, Payment, INITIAL_DATA, STORAGE_KEY, PaymentStatus } from './types';
-import { format, isAfter, startOfDay, parseISO, addMonths, isBefore } from 'date-fns';
+import { format, isAfter, startOfDay, parseISO, addMonths, isBefore, differenceInDays } from 'date-fns';
 
 export interface Notification {
   id: string;
@@ -57,7 +57,10 @@ export default function App() {
     clientName: '',
     amount: '',
     interestRate: '15',
-    totalTerm: '3'
+    totalTerm: '3',
+    dailyPenalty: '10',
+    startDate: format(new Date(), 'yyyy-MM-dd'),
+    endDate: format(addMonths(new Date(), 3), 'yyyy-MM-dd')
   });
 
   const [calcBase, setCalcBase] = useState(1000);
@@ -136,10 +139,12 @@ export default function App() {
     const term = Number(newLoan.totalTerm);
     const monthlyPayment = (amount * (1 + (rate / 100))) / term;
 
+    const start = parseISO(newLoan.startDate);
+    
     const payments: Payment[] = Array.from({ length: term }).map((_, i) => ({
       id: Math.random().toString(36).substring(7),
       amount: Number(monthlyPayment.toFixed(2)),
-      dueDate: format(addMonths(new Date(), i + 1), 'yyyy-MM-dd'),
+      dueDate: format(addMonths(start, i + 1), 'yyyy-MM-dd'),
       status: 'pending'
     }));
 
@@ -149,14 +154,23 @@ export default function App() {
       amount: amount,
       interestRate: rate,
       totalTerm: term,
-      startDate: format(new Date(), 'yyyy-MM-dd'),
+      startDate: newLoan.startDate,
       status: 'active',
-      payments
+      payments,
+      dailyPenalty: Number(newLoan.dailyPenalty)
     };
 
     setLoans([loan, ...loans]);
     setIsNewLoanModalOpen(false);
-    setNewLoan({ clientName: '', amount: '', interestRate: '15', totalTerm: '3' });
+    setNewLoan({ 
+      clientName: '', 
+      amount: '', 
+      interestRate: '15', 
+      totalTerm: '3', 
+      dailyPenalty: '10',
+      startDate: format(new Date(), 'yyyy-MM-dd'),
+      endDate: format(addMonths(new Date(), 3), 'yyyy-MM-dd')
+    });
     addNotification('Novo Contrato', `Empréstimo de R$ ${amount} para ${loan.clientName} registrado.`, 'success');
   };
 
@@ -432,7 +446,14 @@ export default function App() {
                       className="border-b border-slate-800/40 hover:bg-white/[0.02] transition-colors group"
                     >
                       <td className="py-4 px-2">
-                        <div className="font-bold text-slate-200">{loan.clientName}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-bold text-slate-200">{loan.clientName}</div>
+                          {loan.status === 'overdue' && (
+                            <div className="bg-rose-500/20 text-rose-500 text-[9px] font-black px-1.5 py-0.5 rounded animate-pulse border border-rose-500/30">
+                              MULTA: R$ {loan.dailyPenalty}/DIA
+                            </div>
+                          )}
+                        </div>
                         <div className="text-[10px] text-slate-600 uppercase italic">ID: {loan.id}</div>
                       </td>
                       <td className="py-4 px-2 text-slate-300">
@@ -612,16 +633,52 @@ export default function App() {
                       />
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Prazo (Meses)</label>
-                    <input 
-                      type="number" 
-                      required
-                      value={newLoan.totalTerm}
-                      onChange={e => setNewLoan({...newLoan, totalTerm: e.target.value})}
-                      className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-sm font-mono focus:outline-none focus:border-emerald-500/50 transition-colors" 
-                      placeholder="3" 
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Prazo (Meses)</label>
+                      <input 
+                        type="number" 
+                        required
+                        value={newLoan.totalTerm}
+                        onChange={e => setNewLoan({...newLoan, totalTerm: e.target.value})}
+                        className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-sm font-mono focus:outline-none focus:border-emerald-500/50 transition-colors" 
+                        placeholder="3" 
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest pl-1">Multa Diária (R$)</label>
+                      <input 
+                        type="number" 
+                        required
+                        value={newLoan.dailyPenalty}
+                        onChange={e => setNewLoan({...newLoan, dailyPenalty: e.target.value})}
+                        className="bg-rose-950/5 border border-rose-900/20 rounded-2xl p-4 text-sm font-mono focus:outline-none focus:border-rose-500/50 transition-colors text-rose-400" 
+                        placeholder="10" 
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-emerald-500 uppercase tracking-widest pl-1">Data de Início</label>
+                      <input 
+                        type="date" 
+                        required
+                        value={newLoan.startDate}
+                        onChange={e => setNewLoan({...newLoan, startDate: e.target.value})}
+                        className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-sm font-mono focus:outline-none focus:border-emerald-500/50 transition-colors text-white" 
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-[10px] font-black text-rose-500 uppercase tracking-widest pl-1">Vencimento Final</label>
+                      <input 
+                        type="date" 
+                        required
+                        value={newLoan.endDate}
+                        onChange={e => setNewLoan({...newLoan, endDate: e.target.value})}
+                        className="bg-slate-900/50 border border-slate-800 rounded-2xl p-4 text-sm font-mono focus:outline-none focus:border-rose-500/50 transition-colors text-white" 
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -700,9 +757,19 @@ export default function App() {
                         <div>
                           <div className={`text-sm font-bold ${p.status === 'paid' ? 'text-slate-400 line-through' : 'text-slate-200'}`}>
                             R$ {p.amount.toLocaleString('pt-BR')}
+                            {p.status !== 'paid' && isBefore(parseISO(p.dueDate), startOfDay(new Date())) && (
+                              <span className="text-rose-500 ml-2 animate-pulse">
+                                + R$ {(selectedLoan.dailyPenalty * Math.max(0, differenceInDays(startOfDay(new Date()), parseISO(p.dueDate)))).toLocaleString('pt-BR')}
+                              </span>
+                            )}
                           </div>
                           <div className="text-[10px] text-slate-600 font-mono">
                             VENCIMENTO: {format(parseISO(p.dueDate), 'dd/MM/yyyy')}
+                            {p.status !== 'paid' && isBefore(parseISO(p.dueDate), startOfDay(new Date())) && (
+                              <span className="text-rose-400 ml-2 font-black uppercase">
+                                ({Math.max(0, differenceInDays(startOfDay(new Date()), parseISO(p.dueDate)))} DIAS DE ATRASO)
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
