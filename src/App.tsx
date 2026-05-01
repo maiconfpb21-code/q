@@ -191,10 +191,32 @@ export default function App() {
   const stats = useMemo(() => {
     const totalLent = loans.reduce((acc, l) => acc + l.amount, 0);
     const activeContracts = loans.filter(l => l.status === 'active' || l.status === 'overdue').length;
-    const totalDebt = loans.reduce((acc, l) => {
-      const pendingAndOverdue = l.payments.filter(p => p.status !== 'paid');
-      return acc + pendingAndOverdue.reduce((sum, p) => sum + p.amount, 0);
+    
+    // Total amount that will be collected (Principal + Interest)
+    const totalExpected = loans.reduce((acc, l) => {
+        return acc + l.payments.reduce((sum, p) => sum + p.amount, 0);
     }, 0);
+
+    const totalReceived = loans.reduce((acc, l) => {
+        return acc + l.payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + p.amount, 0);
+    }, 0);
+
+    const totalPending = totalExpected - totalReceived;
+
+    // Profit = Total Interest Expected
+    const totalInterestExpected = loans.reduce((acc, l) => {
+        const totalLoanAmount = l.payments.reduce((sum, p) => sum + p.amount, 0);
+        return acc + (totalLoanAmount - l.amount);
+    }, 0);
+
+    // Interest realized (proportional per payment)
+    const interestRealized = loans.reduce((acc, l) => {
+        const principalPerPayment = l.amount / l.totalTerm;
+        const realizedInterest = l.payments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount - principalPerPayment), 0);
+        return acc + realizedInterest;
+    }, 0);
+
+    const profitMargin = totalLent > 0 ? (totalInterestExpected / totalLent) * 100 : 0;
     
     const overdueLoans = loans.filter(l => l.status === 'overdue');
     const defaultPercentage = totalLent > 0 ? (overdueLoans.reduce((acc, l) => acc + l.amount, 0) / totalLent) * 100 : 0;
@@ -209,7 +231,11 @@ export default function App() {
     return {
       totalLent,
       activeContracts,
-      totalDebt,
+      totalReceived,
+      totalPending,
+      totalInterestExpected,
+      interestRealized,
+      profitMargin,
       defaultPercentage,
       collectionsToday,
       overdueCount: overdueLoans.length
@@ -232,10 +258,10 @@ export default function App() {
             </h1>
             <p className="text-slate-500 text-sm font-mono mt-1">SISTEMA DE GESTÃO DE ATIVOS E RISCO • v2.4.2</p>
           </div>
-          <div className="text-left md:text-right">
-            <div className="text-slate-400 text-xs uppercase tracking-widest mb-1 font-bold">Saldo Estimado em Custódia</div>
+            <div className="text-left md:text-right">
+            <div className="text-slate-400 text-xs uppercase tracking-widest mb-1 font-bold">Total em Recebíveis (Principal + Juros)</div>
             <div className="text-3xl font-mono text-emerald-400 font-bold">
-              R$ {stats.totalDebt.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+              R$ {stats.totalPending.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
             </div>
           </div>
         </header>
@@ -276,25 +302,27 @@ export default function App() {
             </div>
           </motion.div>
 
-          {/* Overdue Warning */}
+          {/* Profit Metrics */}
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="md:col-span-1 md:row-span-1 bg-rose-950/10 border border-rose-900/20 p-6 rounded-3xl flex flex-col justify-between group hover:border-rose-500/40 transition-all"
+            transition={{ delay: 0.15 }}
+            className="md:col-span-1 md:row-span-1 bg-slate-900 border border-slate-800/80 p-6 rounded-3xl flex flex-col justify-between group hover:border-emerald-500/40 transition-all shadow-inner"
           >
-            <div className="text-rose-400 font-bold flex items-center gap-2 text-xs uppercase tracking-widest">
-              <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div>
-              INADIMPLÊNCIA
+            <div className="text-emerald-500 font-black flex items-center gap-2 text-[10px] tracking-[0.2em] uppercase">
+              <TrendingUp size={14} /> Lucro Realizado
             </div>
             <div>
-              <div className="text-4xl font-mono text-rose-500 font-bold">
-                {stats.defaultPercentage.toFixed(1)}%
+              <div className="text-3xl font-mono text-white font-bold">
+                R$ {stats.interestRealized.toLocaleString('pt-BR', { minimumFractionDigits: 0 })}
               </div>
-              <p className="text-rose-300/40 text-[10px] mt-1 font-mono">ÍNDICE DE RISCO CALCULADO</p>
+              <div className="flex justify-between items-center mt-2">
+                <span className="text-[10px] text-slate-500 font-mono">MARGEM ATUAL</span>
+                <span className="text-[10px] text-emerald-400 font-bold">{stats.profitMargin.toFixed(1)}%</span>
+              </div>
             </div>
-            <div className="text-rose-100/60 text-[10px] uppercase tracking-wider font-bold">
-              {stats.overdueCount} clientes críticos exigem atenção
+            <div className="text-slate-600 text-[9px] uppercase tracking-tighter leading-none mt-2">
+              Projeção total de lucro: <span className="text-slate-400 font-bold">R$ {stats.totalInterestExpected.toLocaleString('pt-BR')}</span>
             </div>
           </motion.div>
 
@@ -445,6 +473,28 @@ export default function App() {
                   <span className="text-emerald-500 font-black">+ R$ {calcResult.toLocaleString('pt-BR')}</span>
                 </div>
               </div>
+            </div>
+          </motion.div>
+
+          {/* Overdue Warning */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45 }}
+            className="md:col-span-1 md:row-span-1 bg-rose-950/20 border border-rose-900/30 p-6 rounded-3xl flex flex-col justify-between group hover:border-rose-500/40 transition-all shadow-lg"
+          >
+            <div className="text-rose-400 font-bold flex items-center gap-2 text-[10px] uppercase tracking-widest font-black">
+              <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div>
+              Risco Crítico
+            </div>
+            <div>
+              <div className="text-3xl font-mono text-rose-500 font-bold leading-tight">
+                {stats.defaultPercentage.toFixed(1)}%
+              </div>
+              <p className="text-rose-300/20 text-[9px] mt-1 font-mono uppercase">Inadimplência Real</p>
+            </div>
+            <div className="text-rose-400/80 text-[10px] uppercase tracking-tighter font-black mt-2">
+              {stats.overdueCount} Alvos de Cobrança
             </div>
           </motion.div>
 
