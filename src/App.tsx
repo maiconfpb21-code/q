@@ -40,6 +40,9 @@ export default function App() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loanToDelete, setLoanToDelete] = useState<string | null>(null);
+  const [authPassword, setAuthPassword] = useState('');
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
   const addNotification = (title: string, message: string, type: Notification['type'] = 'info') => {
     const id = Math.random().toString(36).substring(7);
@@ -155,6 +158,25 @@ export default function App() {
     setIsNewLoanModalOpen(false);
     setNewLoan({ clientName: '', amount: '', interestRate: '15', totalTerm: '3' });
     addNotification('Novo Contrato', `Empréstimo de R$ ${amount} para ${loan.clientName} registrado.`, 'success');
+  };
+
+  const handleDeleteLoan = (loanId: string) => {
+    setLoanToDelete(loanId);
+    setIsAuthModalOpen(true);
+    setAuthPassword('');
+  };
+
+  const confirmDeleteLoan = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (authPassword === '184421') {
+      setLoans(prev => prev.filter(l => l.id !== loanToDelete));
+      setSelectedLoan(null);
+      setIsAuthModalOpen(false);
+      setLoanToDelete(null);
+      addNotification('Contrato Encerrado', 'Os registros do cliente foram removidos permanentemente.', 'warning');
+    } else {
+      addNotification('Acesso Negado', 'Senha operacional incorreta.', 'error');
+    }
   };
 
   const handleTogglePayment = (loanId: string, paymentId: string) => {
@@ -698,6 +720,19 @@ export default function App() {
                   ))}
                 </div>
               </div>
+
+              <div className="mt-8 pt-6 border-t border-slate-800/60 flex justify-between items-center">
+                <button 
+                  onClick={() => handleDeleteLoan(selectedLoan.id)}
+                  className="px-6 py-2 bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 hover:text-white transition-all flex items-center gap-2"
+                >
+                  <AlertTriangle size={14} />
+                  Encerrar Contrato (Excluir)
+                </button>
+                <div className="text-[9px] text-slate-700 font-mono italic">
+                  Ação protegida por autenticação nível 2
+                </div>
+              </div>
             </motion.div>
           </motion.div>
         )}
@@ -716,6 +751,55 @@ export default function App() {
           ))}
         </AnimatePresence>
       </div>
+
+      {/* Auth Password Modal */}
+      <AnimatePresence>
+        {isAuthModalOpen && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] flex items-center justify-center p-4"
+          >
+            <motion.div 
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-[#0D0D10] border border-rose-500/20 w-full max-w-sm rounded-[2rem] p-8 shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/10 blur-3xl -mr-16 -mt-16"></div>
+              
+              <div className="text-center mb-6">
+                <div className="w-12 h-12 bg-rose-500/10 rounded-full flex items-center justify-center mx-auto mb-4 border border-rose-500/20">
+                  <ShieldCheck size={24} className="text-rose-500" />
+                </div>
+                <h2 className="text-xl font-black text-white italic tracking-tighter uppercase">Autenticação <span className="text-rose-500">Nível 2</span></h2>
+                <p className="text-slate-500 font-mono text-[9px] mt-1 uppercase">AUTORIZAÇÃO REQUERIDA PARA EXCLUSÃO DE DADOS</p>
+              </div>
+
+              <form className="space-y-4" onSubmit={confirmDeleteLoan}>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest pl-1">Senha do Administrador</label>
+                  <input 
+                    type="password" 
+                    autoFocus
+                    required
+                    value={authPassword}
+                    onChange={e => setAuthPassword(e.target.value)}
+                    className="bg-slate-900/50 border border-slate-800 rounded-xl p-4 text-center text-xl tracking-[0.5em] font-mono focus:outline-none focus:border-rose-500/50 transition-colors text-white" 
+                    placeholder="******" 
+                  />
+                </div>
+
+                <div className="pt-2 flex flex-col gap-3">
+                  <button type="submit" className="w-full py-4 bg-rose-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-rose-500 transition-all shadow-lg shadow-rose-900/20">Confirmar Destruição</button>
+                  <button type="button" onClick={() => setIsAuthModalOpen(false)} className="w-full py-3 border border-slate-800 text-slate-500 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all">Abortar</button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <style>{`
         .custom-scrollbar::-webkit-scrollbar {
